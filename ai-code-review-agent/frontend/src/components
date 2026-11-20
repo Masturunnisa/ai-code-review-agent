@@ -1,0 +1,69 @@
+// This file contains reusable React components for the user interface of the AI Code Review & Security Analysis Agent project.
+
+// Example of a reusable Button component
+import React from 'react';
+
+const Button = ({ onClick, children, className }) => {
+    return (
+        <button onClick={onClick} className={`btn ${className}`}>
+            {children}
+        </button>
+    );
+};
+
+export default Button;
+
+// Example of a CodeViewer component to display submitted code
+import React from 'react';
+
+const CodeViewer = ({ code }) => {
+    return (
+        <pre className="code-viewer">
+            <code>{code}</code>
+        </pre>
+    );
+};
+
+export default CodeViewer;
+
+// Example of a FindingItem component to display individual findings
+import React from 'react';
+
+const FindingItem = ({ title, description, severity }) => {
+    return (
+        <div className={`finding-item severity-${severity.toLowerCase()}`}>
+            <h4>{title}</h4>
+            <p>{description}</p>
+        </div>
+    );
+};
+
+export default FindingItem;
+
+// Example of a ChatInterface component for the conversational assistant
+import React, { useState } from 'react';
+
+const ChatInterface = ({ onSend }) => {
+    const [input, setInput] = useState('');
+
+    const handleSend = () => {
+        if (input.trim()) {
+            onSend(input);
+            setInput('');
+        }
+    };
+
+    return (
+        <div className="chat-interface">
+            <input
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="Ask a question..."
+            />
+            <button onClick={handleSend}>Send</button>
+        </div>
+    );
+};
+
+export default ChatInterface;

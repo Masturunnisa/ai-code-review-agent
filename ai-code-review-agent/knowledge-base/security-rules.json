@@ -1,0 +1,196 @@
+{
+  "version": 1,
+  "rules": [
+    {
+      "rule_id": "SEC-001",
+      "title": "Hardcoded secrets",
+      "category": "Security",
+      "severity": "high",
+      "languages": ["python", "java"],
+      "tags": ["secret", "password", "api key", "token", "credential", "hardcoded"],
+      "finding_match": ["hardcoded secret"],
+      "description": "Credentials embedded in source can be copied into source control, logs, build artifacts, and distributed binaries.",
+      "detection_guidance": "Look for literal values assigned to credential-like names. This is a heuristic; a value may be a placeholder, and credentials under unrelated names may not be found.",
+      "vulnerable_example": "API_KEY = \"example-secret-value\"",
+      "recommended_fix": "Load secrets from a protected environment variable or secret manager, restrict access, and rotate any credential that may have been exposed.",
+      "source": {
+        "name": "OWASP Secrets Management Cheat Sheet",
+        "url": "https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html",
+        "cwe": "CWE-798"
+      }
+    },
+    {
+      "rule_id": "SEC-002",
+      "title": "SQL injection",
+      "category": "Security",
+      "severity": "high",
+      "languages": ["python", "java"],
+      "tags": ["sql", "injection", "database", "query", "concatenation"],
+      "finding_match": ["sql injection"],
+      "description": "SQL injection occurs when data is composed into a query in a way that lets input alter the query's intended structure.",
+      "detection_guidance": "Trace whether untrusted values are concatenated or interpolated into SQL passed to a database API. Static pattern checks cannot establish the source or full data flow of every value.",
+      "vulnerable_example": "cursor.execute(\"SELECT * FROM users WHERE name = '\" + name + \"'\")",
+      "recommended_fix": "Use parameterized queries and pass input values separately from the SQL statement.",
+      "source": {
+        "name": "OWASP SQL Injection Prevention Cheat Sheet",
+        "url": "https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html",
+        "cwe": "CWE-89"
+      }
+    },
+    {
+      "rule_id": "SEC-003",
+      "title": "Command injection",
+      "category": "Security",
+      "severity": "high",
+      "languages": ["python", "java"],
+      "tags": ["command", "shell", "process", "injection", "subprocess", "runtime exec"],
+      "finding_match": ["shell command", "command execution", "operating-system command"],
+      "description": "Passing untrusted data through a command interpreter can let input change the command that is executed.",
+      "detection_guidance": "Review shell-enabled process calls and dynamic command construction. Confirm whether attacker-controlled data can reach the command.",
+      "vulnerable_example": "subprocess.run(command, shell=True)",
+      "recommended_fix": "Prefer a library API. Otherwise pass a fixed executable and separate arguments without a shell, and validate each argument against an allowlist.",
+      "source": {
+        "name": "OWASP OS Command Injection Defense Cheat Sheet",
+        "url": "https://cheatsheetseries.owasp.org/cheatsheets/OS_Command_Injection_Defense_Cheat_Sheet.html",
+        "cwe": "CWE-78"
+      }
+    },
+    {
+      "rule_id": "SEC-004",
+      "title": "Unsafe deserialization",
+      "category": "Security",
+      "severity": "high",
+      "languages": ["python", "java"],
+      "tags": ["pickle", "deserialization", "serialization", "untrusted data", "object input stream"],
+      "finding_match": ["pickle", "deserialization"],
+      "description": "Deserializing attacker-controlled objects can invoke unsafe behavior or construct unexpected object graphs.",
+      "detection_guidance": "Identify deserialization APIs and establish whether their input can be influenced by an untrusted source. The API name alone does not prove exploitability.",
+      "vulnerable_example": "pickle.loads(untrusted_bytes)",
+      "recommended_fix": "Avoid executable object formats for untrusted input. Prefer a constrained data format such as JSON and validate it against an explicit schema.",
+      "source": {
+        "name": "OWASP Deserialization Cheat Sheet",
+        "url": "https://cheatsheetseries.owasp.org/cheatsheets/Deserialization_Cheat_Sheet.html",
+        "cwe": "CWE-502"
+      }
+    },
+    {
+      "rule_id": "SEC-005",
+      "title": "Cross-site scripting (XSS)",
+      "category": "Security",
+      "severity": "high",
+      "languages": ["python", "java"],
+      "tags": ["xss", "cross site scripting", "html", "output encoding", "template"],
+      "description": "XSS can occur when untrusted content is interpreted as executable markup or script in a user's browser.",
+      "detection_guidance": "Trace untrusted values into HTML, JavaScript, URL, and template output contexts. Check framework auto-escaping and any explicit safe-markup bypasses.",
+      "vulnerable_example": "return \"<div>\" + user_input + \"</div>\"",
+      "recommended_fix": "Use context-aware output encoding and framework template escaping. Sanitize only when rich HTML is required, using a maintained allowlist sanitizer.",
+      "source": {
+        "name": "OWASP Cross Site Scripting Prevention Cheat Sheet",
+        "url": "https://cheatsheetseries.owasp.org/cheatsheets/Cross_Site_Scripting_Prevention_Cheat_Sheet.html",
+        "cwe": "CWE-79"
+      }
+    },
+    {
+      "rule_id": "SEC-006",
+      "title": "Cross-site request forgery (CSRF)",
+      "category": "Security",
+      "severity": "medium",
+      "languages": ["python", "java"],
+      "tags": ["csrf", "cross site request forgery", "cookie", "session", "request forgery"],
+      "description": "CSRF abuses a browser's ambient credentials to trigger an action the authenticated user did not intend.",
+      "detection_guidance": "Review state-changing browser requests that rely on cookies or other automatically attached credentials, and verify that framework CSRF protections are enabled.",
+      "vulnerable_example": "A cookie-authenticated state-changing endpoint accepts requests without a CSRF token or equivalent origin protection.",
+      "recommended_fix": "Use framework CSRF middleware and validated anti-CSRF tokens; configure SameSite cookies and origin checks as defense in depth.",
+      "source": {
+        "name": "OWASP Cross-Site Request Forgery Prevention Cheat Sheet",
+        "url": "https://cheatsheetseries.owasp.org/cheatsheets/Cross-Site_Request_Forgery_Prevention_Cheat_Sheet.html",
+        "cwe": "CWE-352"
+      }
+    },
+    {
+      "rule_id": "SEC-007",
+      "title": "Authentication and password handling",
+      "category": "Security",
+      "severity": "high",
+      "languages": ["python", "java"],
+      "tags": ["authentication", "password", "login", "session", "credential", "hashing"],
+      "description": "Weak authentication and unsafe password or session handling can enable account compromise.",
+      "detection_guidance": "Review password storage, login throttling, recovery flows, session creation and invalidation, and use of maintained identity libraries.",
+      "vulnerable_example": "Comparing a submitted password directly with a plaintext password stored in a database.",
+      "recommended_fix": "Use a maintained authentication library and a dedicated adaptive password-hashing function. Protect recovery and session lifecycle flows.",
+      "source": {
+        "name": "OWASP Authentication Cheat Sheet",
+        "url": "https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html",
+        "cwe": "CWE-287"
+      }
+    },
+    {
+      "rule_id": "SEC-008",
+      "title": "Broken access control",
+      "category": "Security",
+      "severity": "high",
+      "languages": ["python", "java"],
+      "tags": ["authorization", "access control", "ownership", "permissions", "idor", "role"],
+      "description": "Missing server-side authorization can allow users to read or modify resources outside their permitted scope.",
+      "detection_guidance": "Trace resource access and state changes to server-side checks for identity, ownership, role, and policy; UI visibility is not an authorization control.",
+      "vulnerable_example": "Returning an order by ID without checking that the authenticated user can access it.",
+      "recommended_fix": "Enforce authorization on every protected operation using the authenticated principal and the resource's ownership or policy.",
+      "source": {
+        "name": "OWASP Authorization Cheat Sheet",
+        "url": "https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html",
+        "cwe": "CWE-862"
+      }
+    },
+    {
+      "rule_id": "SEC-009",
+      "title": "Input validation and sensitive data exposure",
+      "category": "Security",
+      "severity": "medium",
+      "languages": ["python", "java"],
+      "tags": ["input validation", "validation", "sensitive data", "privacy", "cryptography", "data exposure"],
+      "description": "Unvalidated data and unnecessary exposure or weak protection of sensitive information can cause security and privacy failures.",
+      "detection_guidance": "Check data at trust boundaries for type, length, range, and format. Review whether sensitive values are minimized, protected in transit and at rest, and excluded from logs and errors.",
+      "vulnerable_example": "Logging an entire request object that may contain credentials or personal information.",
+      "recommended_fix": "Validate against an explicit allowlist and schema. Minimize collected data, use maintained cryptographic libraries, and redact sensitive values from logs and responses.",
+      "source": {
+        "name": "OWASP Input Validation Cheat Sheet",
+        "url": "https://cheatsheetseries.owasp.org/cheatsheets/Input_Validation_Cheat_Sheet.html",
+        "cwe": "CWE-20"
+      }
+    },
+    {
+      "rule_id": "SEC-010",
+      "title": "Unsafe error handling",
+      "category": "Security",
+      "severity": "low",
+      "languages": ["python", "java"],
+      "tags": ["error handling", "exception", "stack trace", "information disclosure", "logging"],
+      "description": "Detailed internal errors returned to untrusted callers can disclose implementation details or sensitive data.",
+      "detection_guidance": "Inspect exception responses and logs for stack traces, tokens, personal data, and internal configuration. Preserve useful protected diagnostics for operators.",
+      "vulnerable_example": "Returning a full exception stack trace in an unauthenticated API response.",
+      "recommended_fix": "Return a generic, stable error message to callers and log sanitized diagnostic context through access-controlled logging.",
+      "source": {
+        "name": "OWASP Error Handling Cheat Sheet",
+        "url": "https://cheatsheetseries.owasp.org/cheatsheets/Error_Handling_Cheat_Sheet.html",
+        "cwe": "CWE-209"
+      }
+    },
+    {
+      "rule_id": "QUAL-001",
+      "title": "Maintainability and code smells",
+      "category": "Code quality",
+      "severity": "info",
+      "languages": ["python", "java"],
+      "tags": ["code smell", "maintainability", "complexity", "unused variable", "naming", "duplicate code"],
+      "description": "High complexity, unclear names, dead code, and duplication make behavior harder to verify and changes riskier.",
+      "detection_guidance": "Use language-aware linters and review control-flow complexity, duplicate logic, naming, and unused declarations. A style warning alone is not evidence of a security vulnerability.",
+      "vulnerable_example": "Repeated copies of the same authorization or validation logic that can drift over time.",
+      "recommended_fix": "Prefer focused functions, descriptive names, shared well-tested logic, and removal of truly unused code; verify behavior with tests.",
+      "source": {
+        "name": "OWASP Code Review Guide",
+        "url": "https://owasp.org/www-project-code-review-guide/",
+        "cwe": null
+      }
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+# File: /ai-code-review-agent/ai-code-review-agent/backend/app/reports/report_generator.py
+
+from fpdf import FPDF
+import json
+import os
+
+class ReportGenerator:
+    def __init__(self, findings):
+        self.findings = findings
+
+    def generate_pdf_report(self, filename):
+        pdf = FPDF()
+        pdf.set_auto_page_break(auto=True, margin=15)
+        pdf.add_page()
+        pdf.set_font("Arial", size=12)
+
+        pdf.cell(200, 10, txt="Code Review Report", ln=True, align='C')
+        pdf.cell(200, 10, txt="", ln=True)  # Empty line
+
+        for finding in self.findings:
+            pdf.cell(0, 10, txt=f"File: {finding['file']}", ln=True)
+            pdf.cell(0, 10, txt=f"Line: {finding['line']}", ln=True)
+            pdf.cell(0, 10, txt=f"Issue: {finding['issue']}", ln=True)
+            pdf.cell(0, 10, txt=f"Severity: {finding['severity']}", ln=True)
+            pdf.cell(0, 10, txt=f"Recommendation: {finding['recommendation']}", ln=True)
+            pdf.cell(0, 10, txt="", ln=True)  # Empty line
+
+        pdf.output(filename)
+
+    def generate_json_report(self, filename):
+        with open(filename, 'w') as json_file:
+            json.dump(self.findings, json_file, indent=4)
+
+    def save_reports(self, base_path):
+        pdf_filename = os.path.join(base_path, "report.pdf")
+        json_filename = os.path.join(base_path, "report.json")
+        self.generate_pdf_report(pdf_filename)
+        self.generate_json_report(json_filename)
+        return pdf_filename, json_filename

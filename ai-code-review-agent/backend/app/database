@@ -1,0 +1,23 @@
+from sqlalchemy import create_engine, Column, Integer, String, Text
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker
+
+DATABASE_URL = "sqlite:///./reviews.db"
+
+engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+Base = declarative_base()
+
+class Review(Base):
+    __tablename__ = "reviews"
+
+    id = Column(Integer, primary_key=True, index=True)
+    language = Column(String, index=True)
+    code = Column(Text, nullable=False)
+    findings = Column(Text, nullable=False)
+    severity = Column(String, index=True)
+    created_at = Column(String, index=True)
+
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+def init_db():
+    Base.metadata.create_all(bind=engine)
