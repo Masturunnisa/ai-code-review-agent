@@ -80,10 +80,14 @@ Uvicorn startup command. Restart Vite after changing the proxy target.
    finding, and recent conversation turns to show relevant numbered source
    lines alongside locally retrieved rule/document passages. If no knowledge
    base match is found, it says so.
-5. Download a JSON, Markdown, or PDF report. Reports include review status,
-   health score, severity breakdown, findings, recommendations, and available
-   corrected examples. Submitted source lines and the suggested full source are
-   omitted to reduce accidental credential or proprietary-code disclosure.
+5. Preview the full report directly in the report workspace or download JSON,
+   Markdown, or PDF. The readable preview includes findings, severity counts,
+   health dimensions, remediation examples, and the prioritized roadmap, even
+   when the browser cannot render embedded PDFs. PDF reports include branded
+   page headers and footers, review status, severity breakdown, findings,
+   recommendations, and available corrected examples. Submitted source lines
+   and the suggested full source are omitted to reduce accidental credential or
+   proprietary-code disclosure.
 
 Python uses the Python AST, Ruff, and Bandit. Java uses `javac` with annotation
 processing disabled and additional static checks for common security

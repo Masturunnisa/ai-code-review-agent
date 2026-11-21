@@ -169,12 +169,162 @@ function HealthRadar({ dimensions }) {
   );
 }
 
+function ReportDocumentPreview({ analysis, pdfPreviewUrl }) {
+  const summary = analysis.summary || {};
+  const findings = analysis.findings || [];
+  const dimensions = summary.health_dimensions || [];
+  const severityBreakdown = summary.severity_breakdown || {};
+  const roadmap = summary.recommended_corrections || [];
+  const healthScore = summary.health_score ?? analysis.health_score ?? 0;
+  const reviewStatus = summary.review_status || 'Needs review';
+  const analyzedAt = analysis.analyzed_at
+    ? new Date(analysis.analyzed_at).toLocaleString()
+    : 'Analysis date unavailable';
+
+  return (
+    <div className="pdf-viewer">
+      <div className="pdf-viewer-toolbar">
+        <span><FileText size={14} /> Readable report preview · {analysis.filename}</span>
+        <a href={pdfPreviewUrl} target="_blank" rel="noreferrer">Open PDF in new tab</a>
+      </div>
+      <article className="report-document" aria-label="Readable code review report">
+        <header className="report-document-header">
+          <div>
+            <span className="report-document-kicker">AI CODE REVIEW · SECURITY &amp; QUALITY</span>
+            <h2>Code Review Report</h2>
+            <p>{summary.project_name || analysis.filename} <span aria-hidden="true">·</span> {analysis.filename}</p>
+            <small>{analysis.language} <span aria-hidden="true">·</span> Analyzed {analyzedAt}</small>
+          </div>
+          <div className="report-document-score">
+            <span>OVERALL HEALTH</span>
+            <strong>{healthScore}<small>/100</small></strong>
+            <span className={`pdf-preview-status status-${reviewStatus.toLowerCase().replace(/\s+/g, '-')}`}>
+              {reviewStatus}
+            </span>
+          </div>
+        </header>
+
+        <section className="report-document-section report-executive">
+          <h3>Executive summary</h3>
+          <p>{summary.overview || 'Review summary is unavailable.'}</p>
+          <div className="report-document-severity">
+            {['critical', 'high', 'medium', 'low'].map((severity) => (
+              <div className={`pdf-severity-item severity-${severity}`} key={severity}>
+                <span>{severity}</span>
+                <strong>{severityBreakdown[severity] || 0}</strong>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="report-document-section">
+          <h3>Multidimensional code health</h3>
+          <div className="report-document-dimensions">
+            {dimensions.map(({ key, label, score, detail }) => (
+              <div className="report-document-dimension" key={key}>
+                <div><strong>{label}</strong><b>{score}<small>/100</small></b></div>
+                <div className="pdf-dimension-track" role="meter" aria-label={`${label} score`} aria-valuemin="0" aria-valuemax="100" aria-valuenow={score}>
+                  <span style={{ width: `${score}%` }} />
+                </div>
+                <small>{detail}</small>
+              </div>
+            ))}
+          </div>
+          <p className="report-document-caveat">Scores describe detected static-check findings and completed analyzers; they do not measure runtime behavior or performance.</p>
+        </section>
+
+        <div className="report-document-summary-grid">
+          <section className="report-document-section">
+            <h3>Security summary</h3>
+            <p>{summary.security_summary || 'No security summary is available.'}</p>
+          </section>
+          <section className="report-document-section">
+            <h3>Code quality summary</h3>
+            <p>{summary.quality_summary || 'No code quality summary is available.'}</p>
+          </section>
+        </div>
+
+        <section className="report-document-section">
+          <h3>Findings and recommended corrections <span>{findings.length}</span></h3>
+          {findings.length ? (
+            <div className="report-document-findings">
+              {findings.map((finding, index) => {
+                const severity = finding.severity_level || finding.severity || 'Info';
+                const severityClass = severity.toLowerCase().replace(/\s+/g, '-');
+                const correctedCode = finding.remediation?.corrected_code;
+                return (
+                  <article className={`report-document-finding severity-${severityClass}`} key={finding.finding_id || `${finding.title}-${index}`}>
+                    <div className="report-finding-heading">
+                      <span className={`severity-badge severity-${severityClass}`}>{severity}</span>
+                      <span>{finding.type || finding.category || 'Finding'}</span>
+                      <span>{finding.line ? `Line ${finding.line}` : 'Line unavailable'}</span>
+                    </div>
+                    <h4>{finding.title || 'Untitled finding'}</h4>
+                    <p><strong>Why this matters:</strong> {finding.explanation || 'No explanation is available.'}</p>
+                    <p><strong>Recommended correction:</strong> {finding.recommended_fix || 'Review this finding and validate a suitable correction.'}</p>
+                    {finding.guidance?.standard && (
+                      <small className="report-finding-guidance">{finding.guidance.standard}{finding.rule_id ? ` · ${finding.rule_id}` : ''}</small>
+                    )}
+                    {correctedCode && (
+                      <div className="report-corrected-example">
+                        <strong>Illustrative corrected code</strong>
+                        <pre>{correctedCode}</pre>
+                        {finding.remediation?.why_better && <small>{finding.remediation.why_better}</small>}
+                      </div>
+                    )}
+                  </article>
+                );
+              })}
+            </div>
+          ) : (
+            <p>No findings were reported by the available checks.</p>
+          )}
+        </section>
+
+        <section className="report-document-section">
+          <h3>Prioritized remediation roadmap</h3>
+          {roadmap.length ? (
+            <ol className="report-roadmap-list">
+              {roadmap.map((item, index) => (
+                <li key={item.finding_id || `${item.title}-${index}`}>
+                  <span className="report-roadmap-number">{String(index + 1).padStart(2, '0')}</span>
+                  <div>
+                    <strong>{item.severity_level || item.severity || 'Priority'} · {item.title}</strong>
+                    <p>{item.recommended_fix}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p>No corrections were prioritized.</p>
+          )}
+        </section>
+
+        <footer className="report-document-footer">
+          <strong>Analysis limitations</strong>
+          <p>{summary.limitations || 'Static analysis provides signals, not a guarantee of application security or correctness.'}</p>
+          <small>Submitted source is not embedded in this report.</small>
+        </footer>
+      </article>
+      <details className="pdf-native-reader">
+        <summary>Open embedded PDF reader</summary>
+        <iframe
+          className="pdf-preview-frame"
+          src={pdfPreviewUrl}
+          title={`PDF report preview for ${analysis.filename}`}
+        />
+      </details>
+    </div>
+  );
+}
+
 function App() {
   const [language, setLanguage] = useState('python');
   const [languageSource, setLanguageSource] = useState('auto');
   const [filename, setFilename] = useState(examples.python.filename);
   const [code, setCode] = useState(examples.python.code);
   const [analysis, setAnalysis] = useState(null);
+  const [reportSource, setReportSource] = useState(null);
   const [backendStatus, setBackendStatus] = useState('checking');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -340,6 +490,7 @@ function App() {
     setError('');
     setNotice('');
     setAnalysis(null);
+    setReportSource(null);
     setPdfPreviewUrl('');
     setAssistantMessages([]);
     setAssistantQuestion('');
@@ -357,6 +508,7 @@ function App() {
       });
       const result = await readJsonResponse(response, 'Analysis');
       setAnalysis(result);
+      setReportSource({ code, filename, language: result.language });
       setAssistantMessages([]);
       setActiveFinding(result.findings[0] || null);
       setExpandedFinding(result.findings.length ? 0 : null);
@@ -410,14 +562,13 @@ function App() {
   }
 
   async function fetchPdfReport() {
+    if (!analysis || !reportSource) {
+      throw new Error('Run an analysis before generating its PDF report.');
+    }
     const response = await fetch(`${API_URL}/api/report/pdf`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        code,
-        filename,
-        language: analysis.language,
-      }),
+      body: JSON.stringify(reportSource),
     });
     if (!response.ok) await readJsonResponse(response, 'PDF report');
     const blob = await response.blob();
@@ -436,7 +587,7 @@ function App() {
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `${analysis.filename}.review.pdf`;
+      link.download = `${reportSource.filename}.review.pdf`;
       document.body.append(link);
       link.click();
       link.remove();
@@ -544,6 +695,13 @@ function App() {
     quality: counts.quality,
     ...(analysis?.summary?.severity_breakdown || {}),
   };
+  const reportDimensions = analysis?.summary?.health_dimensions || [];
+  const reportSeverity = analysis?.summary?.severity_breakdown || {};
+  const reportHealthScore = analysis?.summary?.health_score ?? analysis?.health_score ?? 0;
+  const reportStatus = analysis?.summary?.review_status || 'Needs review';
+  const reportDate = analysis?.analyzed_at
+    ? new Date(analysis.analyzed_at).toLocaleString()
+    : 'Analysis date unavailable';
 
   const reviewSummary = analysis
     ? analysis.summary?.overview || (counts.security
@@ -619,7 +777,7 @@ function App() {
             className="button button-primary"
             type="button"
             onClick={analyzeCode}
-            disabled={isAnalyzing || !code.trim() || languageSource === 'uncertain'}
+            disabled={isAnalyzing || isDownloading || isPreviewingPdf || !code.trim() || languageSource === 'uncertain'}
           >
             {isAnalyzing ? <RefreshCw className="spin" size={16} /> : <ScanLine size={16} />}
             {isAnalyzing ? 'Analyzing code...' : 'Analyze code'}
@@ -1026,7 +1184,7 @@ function App() {
               {isDownloading ? <RefreshCw className="spin" size={15} /> : <ArrowDownToLine size={15} />}
               {isDownloading ? 'Generating...' : 'Download PDF'}
             </button>
-            <button className="button button-primary" type="button" onClick={analyzeCode} disabled={isAnalyzing}>
+            <button className="button button-primary" type="button" onClick={analyzeCode} disabled={isAnalyzing || isDownloading || isPreviewingPdf}>
               <RefreshCw size={15} /> Re-analyze
             </button>
           </div>
@@ -1040,7 +1198,7 @@ function App() {
               <span className="panel-icon"><FileText size={16} /></span>
               <div>
                 <h2>PDF report preview</h2>
-                <p>{analysis.summary?.project_name} · {analysis.filename}</p>
+                <p>{analysis.summary?.project_name || analysis.filename} · {analysis.filename}</p>
               </div>
             </div>
             <button
@@ -1052,11 +1210,49 @@ function App() {
               <X size={15} /> Close preview
             </button>
           </div>
-          <iframe
-            className="pdf-preview-frame"
-            src={pdfPreviewUrl}
-            title={`PDF report preview for ${analysis.filename}`}
-          />
+          <div className="pdf-preview-layout">
+            <aside className="pdf-preview-overview" aria-label="Report at a glance">
+              <div className="pdf-preview-cover">
+                <span className="pdf-preview-kicker"><Shield size={13} /> REVIEWSTUDIO REPORT</span>
+                <h3>{analysis.filename}</h3>
+                <p>{analysis.language} source <span aria-hidden="true">·</span> {reportDate}</p>
+              </div>
+              <div className="pdf-preview-score">
+                <span>CODE HEALTH SCORE</span>
+                <div><strong>{reportHealthScore}</strong><small>/ 100</small></div>
+                <span className={`pdf-preview-status status-${reportStatus.toLowerCase().replace(/\s+/g, '-')}`}>
+                  {reportStatus}
+                </span>
+              </div>
+              <div className="pdf-preview-severity" aria-label="Finding counts by severity">
+                {['critical', 'high', 'medium', 'low'].map((severity) => (
+                  <div className={`pdf-severity-item severity-${severity}`} key={severity}>
+                    <span>{severity}</span>
+                    <strong>{reportSeverity[severity] || 0}</strong>
+                  </div>
+                ))}
+              </div>
+              <div className="pdf-preview-dimensions">
+                <h3>Health dimensions</h3>
+                {reportDimensions.map(({ key, label, score, detail }) => (
+                  <div className="pdf-dimension-row" key={key}>
+                    <div><span>{label}</span><strong>{score}</strong></div>
+                    <div className="pdf-dimension-track" role="meter" aria-label={`${label} score`} aria-valuemin="0" aria-valuemax="100" aria-valuenow={score}>
+                      <span style={{ width: `${score}%` }} />
+                    </div>
+                    <small>{detail}</small>
+                  </div>
+                ))}
+              </div>
+              <div className="pdf-preview-includes">
+                <strong>Inside this report</strong>
+                <span>Executive summary and severity breakdown</span>
+                <span>Finding locations and security guidance</span>
+                <span>Prioritized fixes and corrected examples</span>
+              </div>
+            </aside>
+            <ReportDocumentPreview analysis={analysis} pdfPreviewUrl={pdfPreviewUrl} />
+          </div>
         </section>
       )}
 
