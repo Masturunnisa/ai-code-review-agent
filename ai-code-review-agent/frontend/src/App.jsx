@@ -85,6 +85,90 @@ function qualityLabel(value) {
   return 'High';
 }
 
+function HealthRadar({ dimensions }) {
+  if (!dimensions?.length) return null;
+
+  const centerX = 140;
+  const centerY = 126;
+  const radius = 76;
+  const angleFor = (index) => (-Math.PI / 2) + (2 * Math.PI * index) / dimensions.length;
+  const pointFor = (index, scale) => {
+    const angle = angleFor(index);
+    return {
+      x: centerX + Math.cos(angle) * radius * scale,
+      y: centerY + Math.sin(angle) * radius * scale,
+    };
+  };
+  const pointString = (scale) => dimensions
+    .map((_, index) => {
+      const point = pointFor(index, scale);
+      return `${point.x},${point.y}`;
+    })
+    .join(' ');
+  const healthPoints = dimensions
+    .map((dimension, index) => {
+      const point = pointFor(index, Math.max(0, Math.min(100, dimension.score)) / 100);
+      return `${point.x},${point.y}`;
+    })
+    .join(' ');
+
+  return (
+    <aside className="health-radar-card" aria-label="Multidimensional code health">
+      <div className="health-radar-heading">
+        <strong>Code health radar</strong>
+        <span>Static-check signals</span>
+      </div>
+      <div className="health-radar-content">
+        <svg
+          className="health-radar-svg"
+          viewBox="0 0 280 252"
+          role="img"
+          aria-label={`Code health radar: ${dimensions.map(({ label, score }) => `${label} ${score} out of 100`).join(', ')}`}
+        >
+          {[0.25, 0.5, 0.75, 1].map((scale) => (
+            <polygon className="health-radar-grid" key={scale} points={pointString(scale)} />
+          ))}
+          {dimensions.map((dimension, index) => {
+            const end = pointFor(index, 1);
+            const angle = angleFor(index);
+            const labelPoint = {
+              x: centerX + Math.cos(angle) * 112,
+              y: centerY + Math.sin(angle) * 112,
+            };
+            const anchor = Math.cos(angle) > 0.25
+              ? 'start'
+              : Math.cos(angle) < -0.25
+                ? 'end'
+                : 'middle';
+            return (
+              <g key={dimension.key}>
+                <line className="health-radar-axis" x1={centerX} y1={centerY} x2={end.x} y2={end.y} />
+                <text className="health-radar-label" x={labelPoint.x} y={labelPoint.y} textAnchor={anchor}>
+                  {dimension.label}
+                </text>
+              </g>
+            );
+          })}
+          <polygon className="health-radar-area" points={healthPoints} />
+          {dimensions.map((dimension, index) => {
+            const point = pointFor(index, Math.max(0, Math.min(100, dimension.score)) / 100);
+            return <circle className="health-radar-point" key={dimension.key} cx={point.x} cy={point.y} r="3.5" />;
+          })}
+        </svg>
+        <ul className="health-radar-legend">
+          {dimensions.map(({ key, label, score, detail }) => (
+            <li key={key}>
+              <span>{label}<small>{detail}</small></span>
+              <strong>{score}</strong>
+            </li>
+          ))}
+        </ul>
+      </div>
+      <p className="health-radar-note">Scores summarize detected findings and completed checks; they are not runtime or performance measurements.</p>
+    </aside>
+  );
+}
+
 function App() {
   const [language, setLanguage] = useState('python');
   const [languageSource, setLanguageSource] = useState('auto');
@@ -412,11 +496,13 @@ function App() {
         body: JSON.stringify({
           question,
           language: analysis?.language || language,
+          code,
           finding: activeFinding
             ? {
               title: activeFinding.title,
               category: activeFinding.type,
               explanation: activeFinding.explanation,
+              line: activeFinding.line,
             }
             : null,
           history: assistantMessages.slice(-6).map(({ question: previousQuestion, answer }) => ({
@@ -658,7 +744,7 @@ function App() {
           </section>
           <section className="summary-strip" aria-live="polite">
             <span className="summary-icon"><FileCheck2 size={17} /></span>
-            <div>
+            <div className="summary-main">
               <strong>Review summary</strong>
               <p>{reviewSummary}</p>
               <div className="review-metrics">
@@ -709,6 +795,7 @@ function App() {
                 </ul>
               )}
             </div>
+            <HealthRadar dimensions={analysis.summary?.health_dimensions} />
             <span className={`result-status ${counts.total ? 'has-findings' : 'all-clear'}`}>
               {counts.total ? `${counts.total} ISSUES` : 'ALL CLEAR'}
             </span>
@@ -985,7 +1072,7 @@ function App() {
               <span className="panel-icon"><MessageCircle size={16} /></span>
               <div>
                 <h2>Ask the secure coding guide</h2>
-                <p>Local keyword retrieval from the project knowledge base; no external model is used.</p>
+                <p>Answers use your current code and local security guides; no external model is used.</p>
               </div>
             </div>
           </div>
@@ -1018,6 +1105,12 @@ function App() {
                   <article className="assistant-message" key={`${index}-${message.question}`}>
                     <strong>{message.question}</strong>
                     <p>{message.answer}</p>
+                    {message.code_context && (
+                      <div className="assistant-code-context">
+                        <strong>Relevant submitted code</strong>
+                        <pre>{message.code_context}</pre>
+                      </div>
+                    )}
                     {message.sources?.length > 0 && (
                       <div className="assistant-sources">
                         <span>Sources</span>

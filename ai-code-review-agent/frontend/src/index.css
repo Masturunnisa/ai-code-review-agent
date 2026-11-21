@@ -225,6 +225,9 @@ a.guidance-reference:hover { color: #c9c1ff; text-decoration: underline; }
 .assistant-messages { display: grid; max-height: 360px; gap: 9px; overflow-y: auto; }
 .assistant-message { padding: 11px; border: 1px solid #2b3b50; border-radius: 9px; background: #111b28; }
 .assistant-message > strong { color: #cbd8e9; font-size: 10px; }
+.assistant-code-context { display: grid; gap: 5px; margin-top: 9px; }
+.assistant-code-context > strong { color: #91a5bd; font-size: 8px; text-transform: uppercase; letter-spacing: .08em; }
+.assistant-code-context pre { max-height: 220px; overflow: auto; margin: 0; padding: 9px; border: 1px solid #29384a; border-radius: 6px; background: #0b121c; color: #b8d8e8; font: 10px/1.6 Consolas, "Cascadia Code", monospace; white-space: pre; }
 .assistant-message > p { margin: 8px 0 0; color: #a8b8ca; font-size: 10px; line-height: 1.7; }
 .assistant-sources { display: grid; gap: 5px; margin-top: 10px; padding-top: 8px; border-top: 1px solid #29384a; color: #8e9eb3; font-size: 9px; }
 .assistant-sources > span:first-child { color: #c2b8ff; font-weight: 700; }
@@ -318,6 +321,31 @@ a.guidance-reference:hover { color: #c9c1ff; text-decoration: underline; }
 .severity-chart-fill.severity-high { background: #d87354; }
 .severity-chart-fill.severity-medium { background: #d7a447; }
 .severity-chart-fill.severity-low { background: #5793b3; }
+.summary-main { min-width: 0; flex: 1.15 !important; }
+.health-radar-card {
+  min-width: 0;
+  flex: 1 1 410px;
+  padding: 11px 12px;
+  border: 1px solid #dfe7ed;
+  border-radius: 10px;
+  background: rgb(255 255 255 / 78%);
+}
+.health-radar-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.health-radar-heading strong { color: #253a4e; font-size: 11px; }
+.health-radar-heading > span { color: #75869a; font-size: 8px; }
+.health-radar-content { display: grid; grid-template-columns: minmax(190px, 1fr) minmax(130px, .9fr); align-items: center; gap: 4px; }
+.health-radar-svg { display: block; width: 100%; max-height: 235px; overflow: visible; }
+.health-radar-grid { fill: none; stroke: #dfe7ed; stroke-width: 1; }
+.health-radar-axis { stroke: #e4ebf0; stroke-width: 1; }
+.health-radar-label { fill: #62758a; font: 8px Inter, ui-sans-serif, sans-serif; }
+.health-radar-area { fill: rgb(47 151 139 / 20%); stroke: #278c83; stroke-width: 2; stroke-linejoin: round; }
+.health-radar-point { fill: #fff; stroke: #278c83; stroke-width: 2; }
+.health-radar-legend { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.health-radar-legend li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.health-radar-legend li > span { display: grid; gap: 2px; color: #33475e; font-size: 9px; font-weight: 650; }
+.health-radar-legend small { color: #75869a; font-size: 8px; font-weight: 400; }
+.health-radar-legend li > strong { color: #247c73; font-size: 13px; font-variant-numeric: tabular-nums; }
+.health-radar-note { margin: 5px 0 0; color: #75869a !important; font-size: 8px !important; line-height: 1.4 !important; }
 .category-filter { display: inline-flex; align-items: center; gap: 7px; margin-left: auto; color: #62758a; font-size: 10px; }
 .category-filter select { max-width: 160px; min-height: 30px; padding: 0 8px; border: 1px solid #d8e2eb; border-radius: 7px; background: #fff; color: #33465d; }
 .remediation-comparison { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding-top: 9px; border-top: 1px solid #e7edf2; }
@@ -343,6 +371,9 @@ a.guidance-reference:hover { color: #c9c1ff; text-decoration: underline; }
   .category-filter select { flex: 1; max-width: none; }
   .remediation-comparison { grid-template-columns: 1fr; }
   .remediation-comparison > p, .remediation-comparison > small { grid-column: auto; }
+  .health-radar-content { grid-template-columns: minmax(0, 1fr); }
+  .health-radar-svg { max-width: 320px; margin: 0 auto; }
+  .health-radar-legend { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 12px; }
 }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }

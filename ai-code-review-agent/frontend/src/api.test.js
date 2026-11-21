@@ -115,6 +115,10 @@ describe('createMarkdownReport', () => {
       review_status: 'Changes Requested',
       summary: {
         project_name: 'Main',
+        health_dimensions: [
+          { key: 'security', label: 'Security', score: 85, detail: '1 security finding(s)' },
+          { key: 'coverage', label: 'Check coverage', score: 100, detail: '3/3 checks completed' },
+        ],
         severity_breakdown: { critical: 0, high: 1, medium: 0, low: 0 },
         security_summary: 'One security finding.',
         quality_summary: 'No code quality findings.',
@@ -138,6 +142,8 @@ describe('createMarkdownReport', () => {
     expect(report).toContain('Code health: 85/100');
     expect(report).toContain('Review status: Changes Requested');
     expect(report).toContain('One security finding.');
+    expect(report).toContain('## Multidimensional code health');
+    expect(report).toContain('Security: 85/100');
     expect(report).toContain('statement.setInt(1, userId);');
   });
 });

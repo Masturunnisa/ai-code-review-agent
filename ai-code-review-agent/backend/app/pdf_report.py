@@ -111,6 +111,42 @@ def create_pdf_report(analysis: dict) -> bytes:
     ]))
     elements.extend([
         count_table,
+        Paragraph("Multidimensional code health", heading_style),
+        Paragraph(
+            "Scores summarize available static-check findings and analyzer coverage; "
+            "they are not runtime or performance measurements.",
+            body_style,
+        ),
+    ])
+    dimensions = summary.get("health_dimensions", [])
+    if dimensions:
+        dimension_rows = [["Dimension", "Score", "Basis"]]
+        dimension_rows.extend(
+            [
+                _safe_text(item.get("label", "")),
+                f"{item.get('score', 0)}/100",
+                _safe_text(item.get("detail", "")),
+            ]
+            for item in dimensions
+        )
+        dimension_table = Table(
+            dimension_rows,
+            colWidths=[1.55 * inch, 0.8 * inch, 3.8 * inch],
+            repeatRows=1,
+            hAlign="LEFT",
+        )
+        dimension_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#eaf2f3")),
+            ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#18324b")),
+            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+            ("GRID", (0, 0), (-1, -1), 0.4, colors.HexColor("#d6e0e8")),
+            ("ALIGN", (1, 1), (1, -1), "CENTER"),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f7f9fb")]),
+            ("PADDING", (0, 0), (-1, -1), 7),
+        ]))
+        elements.append(dimension_table)
+    elements.extend([
         Paragraph("Security summary", heading_style),
         Paragraph(_safe_text(summary["security_summary"]), body_style),
         Paragraph("Code quality summary", heading_style),

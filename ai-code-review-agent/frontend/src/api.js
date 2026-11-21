@@ -130,6 +130,17 @@ export function createMarkdownReport(analysis) {
     '',
     analysis.summary?.quality_summary || '',
     '',
+    ...(analysis.summary?.health_dimensions?.length
+      ? [
+        '## Multidimensional code health',
+        '',
+        ...analysis.summary.health_dimensions.map(
+          ({ label, score, detail }) => `- ${escapeMarkdownTableCell(label)}: ${score}/100 — ${escapeMarkdownTableCell(detail)}`,
+        ),
+        '- Scores summarize available static-check findings; they are not runtime or performance measurements.',
+        '',
+      ]
+      : []),
     '## Severity breakdown',
     '',
     ...(counts.length ? counts : ['- No findings']),

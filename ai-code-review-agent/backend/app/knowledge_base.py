@@ -177,13 +177,64 @@ def attach_rule_metadata(result: dict[str, Any]) -> dict[str, Any]:
     return result
 
 
+def _retrieve_code_context(
+    code: str | None,
+    question: str,
+    finding: dict[str, Any] | None,
+) -> str | None:
+    if not code:
+        return None
+
+    lines = code.splitlines()
+    if not lines:
+        return None
+
+    selected_lines: set[int] = set()
+    finding_line = finding.get("line") if finding else None
+    if isinstance(finding_line, int) and 1 <= finding_line <= len(lines):
+        selected_lines.update(
+            range(max(1, finding_line - 2), min(len(lines), finding_line + 2) + 1)
+        )
+    else:
+        query_tokens = _tokens(question)
+        ranked_lines = sorted(
+            (
+                (len(query_tokens & _tokens(line)), line_number)
+                for line_number, line in enumerate(lines, start=1)
+            ),
+            key=lambda item: (-item[0], item[1]),
+        )
+        matches = [(score, line_number) for score, line_number in ranked_lines if score]
+        if matches:
+            for _, line_number in matches[:4]:
+                selected_lines.update(
+                    range(max(1, line_number - 1), min(len(lines), line_number + 1) + 1)
+                )
+        elif _tokens(question) & {
+            "code", "source", "snippet", "function", "method", "class", "variable", "line",
+        }:
+            selected_lines.update(range(1, min(len(lines), 8) + 1))
+        else:
+            return None
+
+    excerpt = [
+        f"{line_number}: {lines[line_number - 1][:300]}"
+        for line_number in sorted(selected_lines)[:8]
+    ]
+    return "\n".join(excerpt)
+
+
 def answer_question(
     question: str,
     language: str | None = None,
-    finding: dict[str, str] | None = None,
+    finding: dict[str, Any] | None = None,
     history: list[dict[str, str]] | None = None,
+    code: str | None = None,
 ) -> dict[str, Any]:
-    finding_context = " ".join(finding.values()) if finding else ""
+    code_context = _retrieve_code_context(code, question, finding)
+    finding_context = (
+        " ".join(str(value) for value in finding.values()) if finding else ""
+    )
     history_context = ""
     follow_up = re.search(
         r"\b(?:it|that|this|they|them|those|these)\b|"
@@ -202,14 +253,21 @@ def answer_question(
     documents = matches["documents"]
 
     if not rules and not documents:
+        answer = (
+            "I couldn't find a relevant passage in the local knowledge base. "
+            "Try naming a topic such as SQL injection, secrets, authentication, or XSS."
+        )
+        if code_context:
+            answer = (
+                "I found relevant lines in the submitted code, shown below, but no "
+                "matching passage in the local knowledge base. " + answer
+            )
         return {
-            "answer": (
-                "I couldn't find a relevant passage in the local knowledge base. "
-                "Try naming a topic such as SQL injection, secrets, authentication, or XSS."
-            ),
+            "answer": answer,
             "sources": [],
             "retrieval": "local-keyword",
-            "context_used": bool(finding or history_context),
+            "context_used": bool(finding or history_context or code_context),
+            "code_context": code_context,
         }
 
     if rules:
@@ -248,12 +306,25 @@ def answer_question(
 
     if finding and finding.get("explanation"):
         answer = f"{finding['explanation']} {answer}"
+    if code_context:
+        answer = (
+            "Relevant submitted source lines are shown below; line numbers refer to "
+            "the editor. " + answer
+        )
+        first_line = code_context.splitlines()[0].split(":", 1)[0]
+        last_line = code_context.splitlines()[-1].split(":", 1)[0]
+        sources.append({
+            "title": "Submitted source",
+            "reference": f"Lines {first_line}–{last_line}",
+            "url": None,
+        })
 
     return {
         "answer": answer,
         "sources": sources,
         "retrieval": "local-keyword",
-        "context_used": bool(finding or history_context),
+        "context_used": bool(finding or history_context or code_context),
+        "code_context": code_context,
     }
 
 
@@ -280,6 +351,7 @@ def build_review_summary(
     filename: str = "source",
     language: str = "unknown",
     project_name: str | None = None,
+    tools: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     severity_order = ("critical", "error", "high", "medium", "warning", "low", "info")
     severity_counts = {
@@ -308,13 +380,75 @@ def build_review_summary(
         "low": 3,
         "info": 1,
     }
-    health_score = max(
-        0,
-        100 - sum(
-            penalty_weights.get(str(item.get("severity", "")).lower(), 2)
-            for item in findings
-        ),
+    def score_for(items: list[dict[str, Any]]) -> int:
+        return max(
+            0,
+            100 - sum(
+                penalty_weights.get(str(item.get("severity", "")).lower(), 2)
+                for item in items
+            ),
+        )
+
+    health_score = score_for(findings)
+    security_score = score_for(security_findings)
+    quality_only_findings = [
+        item for item in findings if item.get("type") == "Code quality"
+    ]
+    build_findings = [
+        item for item in findings if item.get("type") in {"Compilation", "Syntax"}
+    ]
+    active_tools = tools or {}
+    expected_tools = (
+        ("python_ast", "ruff", "bandit")
+        if language == "python"
+        else ("javac", "java_security")
+        if language == "java"
+        else ()
     )
+    completed_tool_count = sum(
+        active_tools.get(tool) == "available" for tool in expected_tools
+    )
+    coverage_score = (
+        round(100 * completed_tool_count / len(expected_tools))
+        if expected_tools
+        else 0
+    )
+    health_dimensions = [
+        {
+            "key": "security",
+            "label": "Security",
+            "score": security_score,
+            "detail": f"{len(security_findings)} security finding(s)",
+        },
+        {
+            "key": "quality",
+            "label": "Code quality",
+            "score": score_for(quality_only_findings),
+            "detail": f"{len(quality_only_findings)} code quality finding(s)",
+        },
+        {
+            "key": "build",
+            "label": "Syntax & build",
+            "score": score_for(build_findings),
+            "detail": f"{len(build_findings)} syntax or compilation finding(s)",
+        },
+        {
+            "key": "overall",
+            "label": "Overall health",
+            "score": health_score,
+            "detail": f"{len(findings)} total finding(s)",
+        },
+        {
+            "key": "coverage",
+            "label": "Check coverage",
+            "score": coverage_score,
+            "detail": (
+                f"{completed_tool_count}/{len(expected_tools)} checks completed"
+                if expected_tools
+                else "Language not identified"
+            ),
+        },
+    ]
     if normalized_severity_counts["critical"] or normalized_severity_counts["high"]:
         review_status = "Changes Requested"
     elif normalized_severity_counts["medium"] or normalized_severity_counts["low"]:
@@ -346,6 +480,7 @@ def build_review_summary(
         "severity_counts": severity_counts,
         "severity_breakdown": normalized_severity_counts,
         "health_score": health_score,
+        "health_dimensions": health_dimensions,
         "review_status": review_status,
         "project_name": project_name or filename.rsplit(".", 1)[0],
         "language": language,

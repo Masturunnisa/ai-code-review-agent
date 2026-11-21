@@ -85,6 +85,7 @@ class FindingContext(BaseModel):
     title: str = Field(default="", max_length=300)
     category: str = Field(default="", max_length=100)
     explanation: str = Field(default="", max_length=1_000)
+    line: int | None = Field(default=None, ge=1)
 
 
 class ConversationTurn(BaseModel):
@@ -99,8 +100,16 @@ class AssistantRequest(BaseModel):
 
     question: str = Field(min_length=1, max_length=2_000)
     language: Literal["python", "java"] | None = None
+    code: str | None = Field(default=None, max_length=100_000)
     finding: FindingContext | None = None
     history: list[ConversationTurn] = Field(default_factory=list, max_length=8)
+
+    @field_validator("code")
+    @classmethod
+    def validate_code_size(cls, value: str | None) -> str | None:
+        if value is not None and len(value.encode("utf-8")) > 100_000:
+            raise ValueError("Source code must be no larger than 100 KB.")
+        return value
 
     @field_validator("question")
     @classmethod
@@ -138,7 +147,11 @@ def _analyze(submission: AnalysisRequest) -> dict:
             language,
         )
         result["summary"] = build_review_summary(
-            result["findings"], filename, language, submission.project_name
+            result["findings"],
+            filename,
+            language,
+            submission.project_name,
+            result["tools"],
         )
         result["quality"] = result["summary"]["quality"]
         result["health_score"] = result["summary"]["health_score"]
@@ -173,7 +186,7 @@ def ask_assistant(submission: AssistantRequest) -> dict:
     try:
         history = [turn.model_dump() for turn in submission.history]
         return answer_question(
-            submission.question, submission.language, finding, history
+            submission.question, submission.language, finding, history, submission.code
         )
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc

@@ -76,9 +76,10 @@ Uvicorn startup command. Restart Vite after changing the proxy target.
    affected source line, remediation explanation, corrected example, and
    copy-fixed-code action. Examples are illustrative templates; adapt and test
    them before applying.
-4. Ask a question in the assistant. It retrieves local rule and document
-   passages, accepts recent conversation turns for follow-ups, and returns
-   source references. If the knowledge base has no relevant match, it says so.
+4. Ask a question in the assistant. It uses the current editor code, selected
+   finding, and recent conversation turns to show relevant numbered source
+   lines alongside locally retrieved rule/document passages. If no knowledge
+   base match is found, it says so.
 5. Download a JSON, Markdown, or PDF report. Reports include review status,
    health score, severity breakdown, findings, recommendations, and available
    corrected examples. Submitted source lines and the suggested full source are
@@ -101,12 +102,21 @@ High / Medium / Low counts, a deterministic PR-style status, and a separate
 remediation object for every finding. Safe, rule-specific examples are
 illustrative, not automatically applied.
 
+The review summary also includes a five-axis code-health radar: Security, Code
+quality, Syntax & build, Overall health, and Check coverage. Finding-based
+scores start at 100 and subtract the existing severity penalties for findings
+in that category; coverage is the percentage of expected local analyzers that
+completed. These explainable static-check signals are not runtime, performance, or
+general maintainability measurements.
+
 The assistant performs local keyword retrieval over the rules and Markdown
-knowledge base and uses recent turns when resolving follow-up questions. This
-is a local, extractive RAG baseline: it does not use embeddings or an external
-LLM, and it reports when no relevant source is found. The API remains stateless;
-analysis results live in the current frontend session and are not saved to a
-server-side history or database.
+knowledge base, plus lexical retrieval of relevant numbered lines from the
+current editor code. It uses recent turns when resolving follow-up questions.
+This is a local, extractive RAG baseline: it does not use embeddings or an
+external LLM, and it reports when no relevant knowledge-base source is found.
+Code is included only in the assistant request to the local backend and is not
+stored. The API remains stateless; analysis results live in the current
+frontend session and are not saved to a server-side history or database.
 
 The backend exposes typed agent contracts in `backend/app/agent_contracts.py`.
 Static analysis, security checks, per-finding remediation, a findings-based PR
@@ -123,9 +133,9 @@ component responsibilities, data flow, endpoint contracts, and limitations.
   `"language": "python"` or `"language": "java"`.
 - `POST /api/knowledge/search` — accepts `query`, optional `language`, and
   optional result `limit`; returns matching local rules and document chunks
-- `POST /api/assistant` — accepts a question, optional language, and optional
-  finding metadata and recent conversation turns; returns a grounded local
-  answer with retrieved references
+- `POST /api/assistant` — accepts a question, optional language, up to 100 KB
+  of current source code, finding metadata, and recent conversation turns;
+  returns relevant numbered code lines and grounded local guidance
 - `POST /api/report` — same request as analysis; returns JSON without suggested
   source code
 - `POST /api/report/pdf` — same request as analysis; returns a downloadable PDF

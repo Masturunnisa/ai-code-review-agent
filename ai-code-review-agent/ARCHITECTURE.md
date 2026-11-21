@@ -14,7 +14,7 @@ LLM.
 ```mermaid
 flowchart LR
     UI[React + Monaco dashboard] -->|POST /api/analyze| API[FastAPI request validation]
-    UI -->|POST /api/assistant + recent turns| KB[Local knowledge retrieval]
+    UI -->|POST /api/assistant + current code + recent turns| KB[Local code and knowledge retrieval]
     API --> LANG[Language detection and extension validation]
     LANG --> PY[Python AST, Ruff, Bandit]
     LANG --> JAVA[javac diagnostics and Java security checks]
@@ -45,8 +45,11 @@ flowchart LR
   Java compilation does not run the submitted class.
 - **Knowledge base:** loads `knowledge-base/security-rules.json` and Markdown
   reference documents. Retrieval is local lexical keyword matching and includes
-  source references. Recent conversation turns provide context for follow-up
-  questions; no embeddings, external API, or fabricated source is used.
+  source references. For assistant questions, the current editor code is also
+  searched lexically; relevant numbered lines and selected-finding context are
+  returned with the retrieved guidance. Recent conversation turns provide
+  context for follow-up questions; no embeddings, external API, or fabricated
+  source is used.
 - **Reports:** the frontend exports JSON and Markdown; the backend generates
   PDF. Exports include findings, recommendations and corrected examples but
   omit submitted source lines and the suggested full-source buffer to reduce
@@ -59,15 +62,16 @@ flowchart LR
 | `GET` | `/api/health` | — | `{"status":"ok","service":"ai-code-review-agent"}` |
 | `POST` | `/api/analyze` | `{"code":"...","language":"python","filename":"main.py"}`; language and filename may be omitted when source detection is unambiguous | language, filename, findings with remediation, counts, tool status, suggested code, score, PR summary, timestamp |
 | `POST` | `/api/knowledge/search` | `{"query":"SQL injection","language":"python","limit":5}` | locally matched structured rules and document chunks |
-| `POST` | `/api/assistant` | question, optional language/finding, and up to 8 recent `{question, answer}` turns | grounded local answer, retrieval mode, context-used flag, source references |
+| `POST` | `/api/assistant` | question, optional language, up to 100 KB of current code, finding context, and up to 8 recent `{question, answer}` turns | grounded local answer, relevant numbered code lines, retrieval mode, context-used flag, source references |
 | `POST` | `/api/report` | same body as `/api/analyze` | downloadable JSON report without submitted source or suggested full source |
 | `POST` | `/api/report/pdf` | same body as `/api/analyze` | downloadable PDF review report |
 | `GET` | `/docs` | — | FastAPI OpenAPI documentation |
 
 All JSON request models reject unknown fields. Source and question content have
-explicit length limits. The assistant accepts finding metadata and bounded
-conversation context, but not the submitted source. Analysis results are held
-in the current frontend session and are not persisted by the backend.
+explicit length limits. The assistant receives the current editor code and
+finding metadata only with the request; it returns a bounded relevant excerpt
+and does not persist the source or conversation. Analysis results are held in
+the current frontend session and are not persisted by the backend.
 
 ## Finding shape and severity
 
@@ -82,6 +86,15 @@ of the problem and fix. The PR summary includes normalized severity counts,
 health score, security and quality summaries, prioritized corrections, and
 Approved / Changes Requested / Needs Review status.
 
+The review summary adds five explainable radar dimensions: security findings,
+code-quality findings, syntax/compilation findings, overall finding exposure,
+and analyzer coverage. Finding-based scores start at 100 and subtract the
+existing severity penalty for each finding in that dimension. Coverage is the
+percentage of expected local analyzers completed (Python: AST, Ruff,
+Bandit; Java: javac and the built-in security checks). These scores summarize
+the available static signals; they do not measure runtime behavior,
+performance, or general maintainability.
+
 ## Remediation and report behavior
 
 Rule-specific examples cover supported finding patterns such as hardcoded
@@ -94,9 +107,10 @@ counts, findings, corrections and examples, but not submitted source code.
 
 The existing code-analysis and security analyzers remain the source of findings;
 remediation and PR-summary steps consume those actual results. The assistant
-retrieves applicable content from local rules and docs and uses recent
-client-supplied turns for follow-up context. These modules are deterministic
-and local; they do not call independent LLM agents.
+retrieves applicable content from local rules and docs, matches relevant lines
+in the current source, and uses recent client-supplied turns for follow-up
+context. These modules are deterministic and local; they do not call
+independent LLM agents.
 
 ## Security and operational boundaries
 

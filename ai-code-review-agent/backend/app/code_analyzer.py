@@ -440,6 +440,7 @@ def analyze_code(code: str, language: str, filename: str) -> dict[str, Any]:
         issues, tools["javac"] = _analyze_java(code, filename)
         findings.extend(issues)
         findings.extend(_java_security(code))
+        tools["java_security"] = "available"
     else:
         raise ValueError("Language must be either 'python' or 'java'.")
 

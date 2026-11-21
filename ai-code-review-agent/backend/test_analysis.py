@@ -8,6 +8,7 @@ from app.knowledge_base import (
     DOCUMENT_CHUNK_OVERLAP_WORDS,
     MAX_DOCUMENT_CHUNK_WORDS,
     _document_chunks,
+    build_review_summary,
     retrieve_knowledge,
 )
 
@@ -112,6 +113,37 @@ class AnalysisApiTests(unittest.TestCase):
         self.assertEqual(result["findings"][0]["category"], "Security")
         self.assertEqual(result["findings"][0]["language"], "python")
         self.assertEqual(result["findings"][0]["filename"], "main.py")
+
+    def test_health_dimensions_score_findings_and_analyzer_coverage(self):
+        summary = build_review_summary(
+            [
+                {"type": "Security", "severity": "high"},
+                {"type": "Code quality", "severity": "warning"},
+                {"type": "Syntax", "severity": "error"},
+            ],
+            filename="main.py",
+            language="python",
+            tools={
+                "python_ast": "available",
+                "ruff": "available",
+                "bandit": "unavailable",
+            },
+        )
+        scores = {
+            dimension["key"]: dimension["score"]
+            for dimension in summary["health_dimensions"]
+        }
+        self.assertEqual(scores, {
+            "security": 85,
+            "quality": 92,
+            "build": 75,
+            "overall": 52,
+            "coverage": 67,
+        })
+        self.assertEqual(
+            summary["health_dimensions"][-1]["detail"],
+            "2/3 checks completed",
+        )
 
     def test_analysis_includes_finding_remediation_health_and_review_status(self):
         response = client.post(
@@ -335,6 +367,10 @@ class AnalysisApiTests(unittest.TestCase):
                 )
                 self.assertTrue(analysis["summary"]["review_status"])
                 self.assertTrue(analysis["analyzed_at"])
+                self.assertEqual(
+                    [dimension["key"] for dimension in analysis["summary"]["health_dimensions"]],
+                    ["security", "quality", "build", "overall", "coverage"],
+                )
                 if expected_language == "java" or filename == "sample_complex_review.py":
                     security_findings = [
                         item for item in analysis["findings"]
@@ -403,10 +439,17 @@ class AnalysisApiTests(unittest.TestCase):
             json={
                 "question": "Why was this issue detected?",
                 "language": "python",
+                "code": (
+                    "def lookup(cursor, query):\n"
+                    "    user_input = input()\n"
+                    "    cursor.execute(query + user_input)\n"
+                    "    return cursor.fetchone()\n"
+                ),
                 "finding": {
                     "title": "Potential SQL injection",
                     "category": "Security",
                     "explanation": "The query includes dynamic input.",
+                    "line": 3,
                 },
             },
         )
@@ -415,6 +458,32 @@ class AnalysisApiTests(unittest.TestCase):
         self.assertEqual(result["retrieval"], "local-keyword")
         self.assertIn("dynamic input", result["answer"])
         self.assertTrue(result["sources"][0]["url"].startswith("https://"))
+        self.assertIn("3:     cursor.execute", result["code_context"])
+        self.assertTrue(any(
+            source["title"] == "Submitted source"
+            for source in result["sources"]
+        ))
+
+    def test_assistant_returns_code_context_for_a_code_question(self):
+        response = client.post(
+            "/api/assistant",
+            json={
+                "question": "Explain this code",
+                "language": "python",
+                "code": "def greet(name):\n    return 'Hello ' + name\n",
+            },
+        )
+        self.assertEqual(response.status_code, 200)
+        result = response.json()
+        self.assertIn("1: def greet(name):", result["code_context"])
+        self.assertTrue(result["context_used"])
+
+    def test_assistant_rejects_source_larger_than_the_analysis_limit(self):
+        response = client.post(
+            "/api/assistant",
+            json={"question": "Explain this code", "code": "a" * 100_001},
+        )
+        self.assertEqual(response.status_code, 422)
 
     def test_assistant_uses_history_to_resolve_a_follow_up_question(self):
         response = client.post(
